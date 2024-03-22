@@ -1,0 +1,179 @@
+
+
+
+Task BLOCK 2
+
+	Date		: 29.01.2023
+	Team(Account)	: dbp106
+	Password	: oqu7neix
+
+
+
+	
+
+Gruppenmitglieder
+
+
+	Name 		Vorname 		Matrikelnummer
+	
+	Anik 		Nazmul Huda 		3115997
+	Haque 		MD Anamul 		3085596
+	Hossain 	Md Shakhawat 		3099378
+	Bhuyan 		Mohammad Rakib 		3071014
+
+
+
+
+
+
+Aufgabe 1: Katalogisieren 
+
+
+	CATALOG TCPIP NODE sample REMOTE bijou.is.inf.uni-due.de SERVER 50005 
+	REMOTE_INSTANCE dbmaster SYSTEM bijou OSTYPE linux
+	db2 CATALOG DATABASE IMDB AS abc AT NODE sample
+	db2 LIST DB DIRECTORY
+	Systemdatenbankverzeichnis
+	Anzahl Einträge im Verzeichnis = 1
+	Eintrag für Datenbank 1:
+
+	Aliasname der Datenbank                       = ABCD
+	Datenbankname                                 = IMDB
+	Knotenname                                    = TEST
+	Release-Level der Datenbank                   = d.00
+	Kommentar                                     = NONE
+	Verzeichniseintragungsart		      = Fern		
+	Datenbankpartitionsnummer für Katalog         = -1
+	Hostname des Alternativservers                = NONE
+	Portnummer des Alternativservers              = NONE
+
+	db2 list node directory Knotenverzeichnis
+	Anzahl Einträge im Verzeichnis = 1
+	Eintrag für Knoten 1:
+
+
+	Knotenname 					= TEST
+	Kommentar 			 	 	= NONE
+	Verzeichniseintragungsart        		= LOCAL
+	Protokoll    					= TCPIP    			
+	Hostname 					= bijou.is.inf.uni-due.de				
+	Servicename					= 50005
+  
+
+
+Aufgabe 2: Sichten
+
+(2a) 
+	create view dbp106.lowRatedMovies as select m.movieid, m.title,m.year,rnk.rank  from 
+	dbmaster.movies as m join dbmaster.ratings as rnk on m.movieid = rnk.movieid where rnk.rank <(select avg(rank) from dbmaster.ratings)
+
+	select * from dbp106.lowRatedMovies
+
+(2b) 
+
+	create view dbp106.spielbergmovie as select m.movieid, m.title, gen.genre from dbmaster.movies 	as m join dbmaster.genres as gen
+	on m.movieid = gen.movieid join dbmaster.movies2producers as mtopro 
+	on m.movieid= mtopro.movieid join dbmaster.producers as p on p.producerid=
+	mtopro.producerid where p.name = 'Spielberg, Steven'
+
+	select * from dbp106.spielbergmovie
+
+	
+
+
+Aufgabe 3: Verwendung von Sichten
+
+
+
+(3a) 
+
+	select year,title,ranks from dbp106.lowRatedMovies order by year desc
+
+
+(3b) 
+
+	select title, count(genre) as amount from dbp106.spielbergmovies  group by title
+	having count( genre)>=3
+
+
+  
+Aufgabe 4: SQL-Anfragen 
+
+
+
+4a 
+
+	select m.title, count(mtoact.actorid) as amount from dbmaster.movies2actors as  mtoact join
+	dbmaster.movies as m on mtoact.movieid = m.movieid group by m.movieid, m.title order by amount desc fetch first 1 rows only
+
+4b 
+	select avg(totalact) as amount from (select count(mtoact.actorid) as totalact from
+	dbmaster.movies2actors mtoact join dbmaster.genres gen on mtoact.movieid = gen.movieid where gen.genre ='Mystery' group by mtoact.movieid)
+
+4c 
+
+	select d.name as name, d.gross/nofd as mean_gross from (select directorid, count(movieid)
+ 	as nofd from dbmaster.movies2directors group by directorid) as newdir 
+	join dbmaster.directors as d on d.directorid = newdir.directorid order by (d.gross/nofd) desc
+
+
+(4d)
+
+	select d.name as name_regisseur from dbmaster.directors as  d join dbmaster.movies2directors as mtodir 
+	on mtodir.directorid = d.directorid join dbmaster.movies2actors as mtoact on
+	mtodir.movieid = mtoact.movieid join dbmaster.actors as a on a.actorid = mtoact.actorid where d.name = a.name
+
+(4e) 
+
+	select distinct w.name as name_writer from dbmaster.writers as w join dbmaster.movies2writers
+	mtowri on w.writerid= mtowri.writerid join dbmaster.movies as m on mtowri.movieid = m.movieid
+	where m.year >= 1920 and m.year <=1929
+
+(4f) 
+
+	select * from((select m.title,m.year,act.name ,'Actors' as role from dbmaster.movies as m 
+	join dbmaster.movies2actors as m2a on m.movieid = m2a.movieid join dbmaster.actors as act 
+	on m2a.actorid = act.actorid) union (select m.title,m.year,d.name ,'Directors' as role 
+	from dbmaster.movies as m join dbmaster.movies2directors as m2d on m.movieid = m2d.movieid 
+	join dbmaster.directors as d on m2d.directorid = d.directorid)) as actorsDirectors 
+	ORDER  BY actorsDirectors.title DESC
+
+
+(4G) 
+	select gen.genre, count(genre) as movies_per_gen, (count(genre) *100/ (select count(genre) 
+	from dbmaster.genres)) as market_share from dbmaster.genres as  gen group by genre order by market_share desc
+
+
+
+
+
+Aufgabe 6: Trigger
+
+
+(6a)
+
+
+	CREATE TRIGGER dbp106.TRIGGER1
+	AFTER UPDATE OF VOTES ON RATINGS
+	REFERENCING NEW AS newrow 
+	FOR EACH ROW MODE DB2SQL
+	BEGIN ATOMIC
+		IF (newrow.VOTES = 100) THEN
+		INSERT INTO dbp106.frequentRatedMovies 
+    		SELECT m.movieid, m.title, m.year FROM dbmaster.movies m where m.movieid = newrow.movieid;
+	   END IF;
+    	END@
+    
+    
+(6b)  
+
+
+	CREATE TRIGGER dbp106.TRIGGER2
+	AFTER UPDATE OF VOTES ON RATINGS
+	REFERENCING NEW AS newrow 
+	FOR EACH ROW MODE DB2SQL
+	BEGIN ATOMIC
+		IF (newrow.VOTES < 100) THEN
+		DELETE FROM dbp106.frequentRatedMovies as frm where frm.movieid = newrow.movieid;
+	   END IF;
+    	END@
